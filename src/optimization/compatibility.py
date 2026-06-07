@@ -56,6 +56,23 @@ def ensure_flash_attn_safe():
         sys.modules['flash_attn'] = stub
 
 
+def ensure_transformers_flash_attn_mapping_safe():
+    """
+    Transformers 5.x may raise KeyError while checking optional flash_attn
+    packages if the distribution mapping lacks flash attention entries.
+    SeedVR2 can run with SDPA, so the optional check should resolve to False
+    rather than aborting plugin import.
+    """
+    try:
+        from transformers.utils import import_utils
+        mapping = getattr(import_utils, "PACKAGE_DISTRIBUTION_MAPPING", None)
+        if isinstance(mapping, dict):
+            mapping.setdefault("flash_attn", ["flash-attn"])
+            mapping.setdefault("flash_attn_interface", ["flash-attn-3"])
+    except Exception:
+        pass
+
+
 def ensure_xformers_flash_compat():
     """
     Pre-test xformers._C_flashattention; stub if DLL is broken.
@@ -111,6 +128,7 @@ def ensure_bitsandbytes_safe():
 # Run all shims immediately on import, before torch/diffusers
 ensure_triton_compat()
 ensure_flash_attn_safe()
+ensure_transformers_flash_attn_mapping_safe()
 ensure_xformers_flash_compat()
 ensure_bitsandbytes_safe()
 
