@@ -4,6 +4,10 @@ This fork tracks `numz/ComfyUI-SeedVR2_VideoUpscaler` and adds experimental Inte
 
 The goal is to make SeedVR2 discoverable and usable on systems where `torch.xpu.is_available()` is true, without requiring CUDA. It exposes Intel devices such as `xpu:0` in the DiT and VAE loader nodes, adds conservative shared-memory reporting for Intel iGPU/XPU systems, and keeps the default attention path on PyTorch SDPA rather than CUDA-only Flash/Sage Attention.
 
+This Intel XPU support code was generated with Codex and is based on local testing plus implementation ideas from Intel's `llm-scaler` Omni patch set:
+
+https://github.com/intel/llm-scaler/tree/main/omni/patches
+
 Validated locally on Windows portable ComfyUI with PyTorch `2.12.0+xpu` and Intel Core Ultra x7 358H:
 
 - DiT: `seedvr2_ema_7b-Q8_0.gguf`
@@ -12,6 +16,9 @@ Validated locally on Windows portable ComfyUI with PyTorch `2.12.0+xpu` and Inte
 - Attention: `sdpa`
 - 768x768 image to 1080x1080
 - 1280x720 image to 3640x2048 with tiled VAE encode/decode
+- 1280x720 RGBA image to 3640x2048 using 7B Q8 GGUF completed successfully in 110.58 seconds on the tested Intel XPU setup
+
+Additional XPU compatibility improvements adapted from the Intel Omni patch approach include XPU-aware tensor offload checks, torchvision resize fallback settings, XPU output tensor handling, safetensors CPU-intermediate fallback for XPU allocation errors, and more complete XPU memory cleanup paths.
 
 Suggested Intel XPU starting settings:
 

@@ -15,9 +15,13 @@ from typing import Tuple, Dict, Any, Optional, List, Union
 
 
 def _device_str(device: Union[torch.device, str]) -> str:
-    """Normalized uppercase device string for comparison and logging. MPS variants → 'MPS'."""
+    """Normalized uppercase device string for comparison and logging."""
     s = str(device).upper()
-    return 'MPS' if s.startswith('MPS') else s
+    if s.startswith('MPS'):
+        return 'MPS'
+    if s.startswith('XPU'):
+        return 'XPU'
+    return s
 
 
 def is_mps_available() -> bool:
@@ -141,7 +145,7 @@ def get_basic_vram_info(device: Optional[torch.device] = None) -> Dict[str, Any]
             free_memory = mem.total - mem.used
             total_memory = mem.total
         else:
-            return {"error": "No GPU backend available (CUDA/MPS)"}
+            return {"error": "No GPU backend available (CUDA/MPS/XPU)"}
         
         return {
             "free_gb": free_memory / (1024**3),
@@ -300,7 +304,7 @@ def clear_memory(debug: Optional['Debug'] = None, deep: bool = False, force: boo
             if free_ratio < 0.05:
                 should_clear = True
                 if debug:
-                    backend = "Unified Memory" if is_mps_available() else "VRAM"
+                    backend = "XPU" if is_xpu_available() else ("Unified Memory" if is_mps_available() else "VRAM")
                     debug.log(f"{backend} pressure: {mem_info['free_gb']:.2f}GB free of {mem_info['total_gb']:.2f}GB", category="memory")
         
         # For non-MPS systems, also check system RAM separately
@@ -601,14 +605,14 @@ def release_model_memory(model: Optional[torch.nn.Module], debug: Optional['Debu
         released_buffers = 0
         
         for param in model.parameters():
-            if param.is_cuda or param.is_mps:
+            if param.is_cuda or param.is_mps or param.is_xpu:
                 if param.numel() > 0:
                     param.data.set_()
                     released_params += 1
                 param.grad = None
                 
         for buffer in model.buffers():
-            if buffer.is_cuda or buffer.is_mps:
+            if buffer.is_cuda or buffer.is_mps or buffer.is_xpu:
                 if buffer.numel() > 0:
                     buffer.data.set_()
                     released_buffers += 1
@@ -806,7 +810,7 @@ def _handle_blockswap_model_movement(runner: Any, model: torch.nn.Module,
         # Check if any parameter is on GPU (for accurate logging)
         actual_source_device = None
         for param in model.parameters():
-            if param.device.type in ['cuda', 'mps']:
+            if param.device.type in ['cuda', 'mps', 'xpu']:
                 actual_source_device = param.device
                 break
         
@@ -956,7 +960,7 @@ def _standard_model_movement(model: torch.nn.Module, current_device: torch.devic
         cleared_count = 0
         for module in model.modules():
             if hasattr(module, 'memory') and module.memory is not None:
-                if torch.is_tensor(module.memory) and (module.memory.is_cuda or module.memory.is_mps):
+                if torch.is_tensor(module.memory) and (module.memory.is_cuda or module.memory.is_mps or module.memory.is_xpu):
                     module.memory = None
                     cleared_count += 1
         if cleared_count > 0 and debug:

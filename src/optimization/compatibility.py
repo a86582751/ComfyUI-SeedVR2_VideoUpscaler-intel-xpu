@@ -678,7 +678,10 @@ if not os.environ.get("SEEDVR2_OPTIMIZATIONS_LOGGED"):
         print("💡 For best performance: pip install sageattention flash-attn triton")
     else:
         icon = "⚡" if num_available >= 2 else "⚠️ "
-        print(f"{icon} SeedVR2 optimizations check: SageAttention {sage_status} | Flash Attention {flash_status} | Triton {triton_status}")
+        if hasattr(torch, 'xpu') and torch.xpu.is_available():
+            print(f"⚡ SeedVR2 optimizations check: Triton {triton_status}")
+        else:
+            print(f"{icon} SeedVR2 optimizations check: SageAttention {sage_status} | Flash Attention {flash_status} | Triton {triton_status}")
         
         # Build install suggestions for missing packages
         missing = []
@@ -816,6 +819,8 @@ class CompatibleDiT(torch.nn.Module):
                     if module.rope.freqs.dtype in (torch.float8_e4m3fn, torch.float8_e5m2):
                         if module.rope.freqs.device.type == "mps":
                             module.rope.freqs.data = module.rope.freqs.to("cpu").to(target_dtype).to("mps")
+                        elif module.rope.freqs.device.type == "xpu":
+                            module.rope.freqs.data = module.rope.freqs.to("cpu").to(target_dtype).to("xpu")
                         else:
                             module.rope.freqs.data = module.rope.freqs.to(target_dtype)
                         converted += 1
@@ -841,6 +846,11 @@ class CompatibleDiT(torch.nn.Module):
                     temp_converted = temp_cpu.to(target_dtype)
                     param.data = temp_converted.to("mps")
                     del temp_cpu, temp_converted
+                elif param.device.type == "xpu":
+                    temp_cpu = param.data.to("cpu")
+                    temp_converted = temp_cpu.to(target_dtype)
+                    param.data = temp_converted.to("xpu")
+                    del temp_cpu, temp_converted
                 else:
                     param.data = param.data.to(target_dtype)
                 converted_count += 1
@@ -855,6 +865,11 @@ class CompatibleDiT(torch.nn.Module):
                     temp_cpu = buffer.data.to("cpu")
                     temp_converted = temp_cpu.to(target_dtype)
                     buffer.data = temp_converted.to("mps")
+                    del temp_cpu, temp_converted
+                elif buffer.device.type == "xpu":
+                    temp_cpu = buffer.data.to("cpu")
+                    temp_converted = temp_cpu.to(target_dtype)
+                    buffer.data = temp_converted.to("xpu")
                     del temp_cpu, temp_converted
                 else:
                     buffer.data = buffer.data.to(target_dtype)
