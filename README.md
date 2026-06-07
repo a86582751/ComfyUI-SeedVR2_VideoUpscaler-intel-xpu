@@ -1,3 +1,32 @@
+# ComfyUI SeedVR2 Intel XPU Fork
+
+This fork tracks `numz/ComfyUI-SeedVR2_VideoUpscaler` and adds experimental Intel XPU / PyTorch XPU support for ComfyUI users running on Intel Arc and Core Ultra integrated GPUs.
+
+The goal is to make SeedVR2 discoverable and usable on systems where `torch.xpu.is_available()` is true, without requiring CUDA. It exposes Intel devices such as `xpu:0` in the DiT and VAE loader nodes, adds conservative shared-memory reporting for Intel iGPU/XPU systems, and keeps the default attention path on PyTorch SDPA rather than CUDA-only Flash/Sage Attention.
+
+Validated locally on Windows portable ComfyUI with PyTorch `2.12.0+xpu` and Intel Core Ultra x7 358H:
+
+- DiT: `seedvr2_ema_7b-Q8_0.gguf`
+- VAE: `ema_vae_fp16.safetensors`
+- Device: `xpu:0`
+- Attention: `sdpa`
+- 768x768 image to 1080x1080
+- 1280x720 image to 3640x2048 with tiled VAE encode/decode
+
+Suggested Intel XPU starting settings:
+
+- DiT device: `xpu:0`
+- VAE device: `xpu:0`
+- Attention mode: `sdpa`
+- Batch size: `1` for single images
+- Offload device: `cpu`
+- Torch compile: leave disconnected for interactive image upscaling
+
+This is experimental community work, not official Intel or upstream SeedVR2 support. CUDA-only acceleration backends such as Flash Attention and SageAttention are not enabled for XPU by this fork.
+
+Upstream PR: https://github.com/numz/ComfyUI-SeedVR2_VideoUpscaler/pull/590
+
+---
 # ComfyUI-SeedVR2_VideoUpscaler
 
 [![View Code](https://img.shields.io/badge/📂_View_Code-GitHub-181717?style=for-the-badge&logo=github)](https://github.com/numz/ComfyUI-SeedVR2_VideoUpscaler)
